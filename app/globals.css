@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-petroleo-100;
+  }
+
+  /* Foco de teclado sempre visível — parte da barra mínima de qualidade,
+     essencial para um público que pode acessar via leitores de tela ou
+     navegação por teclado em telecentros/pontos de apoio. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-aurora-500 ring-offset-2 ring-offset-areia-50;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
