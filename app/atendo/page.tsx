@@ -20,8 +20,67 @@ const MENSAGEM_INICIAL: Mensagem = {
     "Olá, eu sou o Atendo. Conte o que você precisa — posso ajudar a encontrar o próximo passo.",
 };
 
+function gerarResposta(texto: string): string {
+  const mensagem = texto.toLowerCase();
+
+  if (
+    mensagem.includes("documento") ||
+    mensagem.includes("rg") ||
+    mensagem.includes("cpf") ||
+    mensagem.includes("certidão")
+  ) {
+    return "Posso ajudar com documentação. O primeiro passo é identificar qual documento você precisa emitir ou regularizar. Posso te orientar sobre RG, CPF, certidões e outros documentos.";
+  }
+
+  if (
+    mensagem.includes("trabalho") ||
+    mensagem.includes("emprego") ||
+    mensagem.includes("vaga") ||
+    mensagem.includes("currículo") ||
+    mensagem.includes("curso")
+  ) {
+    return "Posso ajudar com trabalho e qualificação. Podemos organizar os próximos passos para procurar emprego, preparar seu currículo, encontrar cursos e buscar oportunidades de reinserção profissional.";
+  }
+
+  if (
+    mensagem.includes("moradia") ||
+    mensagem.includes("casa") ||
+    mensagem.includes("aluguel") ||
+    mensagem.includes("onde morar")
+  ) {
+    return "Posso ajudar com moradia. Podemos organizar os próximos passos para encontrar um lugar seguro para morar, verificar programas de apoio e separar os documentos necessários.";
+  }
+
+  if (
+    mensagem.includes("cras") ||
+    mensagem.includes("assistência") ||
+    mensagem.includes("assistencia") ||
+    mensagem.includes("escritório social") ||
+    mensagem.includes("escritorio social") ||
+    mensagem.includes("ajuda")
+  ) {
+    return "Posso ajudar a encontrar caminhos de assistência social. Podemos verificar serviços como CRAS, Escritório Social e outras formas de apoio disponíveis para sua situação.";
+  }
+
+  if (
+    mensagem.includes("saúde") ||
+    mensagem.includes("saude") ||
+    mensagem.includes("médico") ||
+    mensagem.includes("medico") ||
+    mensagem.includes("hospital") ||
+    mensagem.includes("psicológico") ||
+    mensagem.includes("psicologico")
+  ) {
+    return "Posso ajudar com informações sobre acesso à saúde. Podemos organizar os próximos passos para buscar atendimento médico, psicológico ou outros serviços da rede pública.";
+  }
+
+  return "Entendi. Posso te ajudar a encontrar o próximo passo. Tente me contar um pouco mais sobre o que você precisa, por exemplo: documentos, trabalho, moradia, assistência ou saúde.";
+}
+
 export default function AtendoPage() {
-  const [mensagens, setMensagens] = useState<Mensagem[]>([MENSAGEM_INICIAL]);
+  const [mensagens, setMensagens] = useState<Mensagem[]>([
+    MENSAGEM_INICIAL,
+  ]);
 
   const enviarMensagem = (texto: string) => {
     const doUsuario: Mensagem = {
@@ -30,13 +89,10 @@ export default function AtendoPage() {
       texto,
     };
 
-    // Resposta de exemplo para o protótipo — no produto real, o texto
-    // do usuário vai para o backend/IA e a resposta chega de lá.
     const resposta: Mensagem = {
       id: crypto.randomUUID(),
       autor: "atendo",
-      texto:
-        "Entendi. Estou juntando as informações mais atualizadas sobre isso para você — um instante.",
+      texto: gerarResposta(texto),
     };
 
     setMensagens((atual) => [...atual, doUsuario, resposta]);
@@ -63,11 +119,14 @@ export default function AtendoPage() {
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </Link>
+
         <div>
           <p className="font-display text-lg font-medium leading-none text-petroleo-950">
             Atendo
           </p>
-          <p className="text-xs text-carvao-600">Assistente do RECOMEÇO</p>
+          <p className="text-xs text-carvao-600">
+            Assistente do RECOMEÇO
+          </p>
         </div>
       </header>
 
@@ -84,6 +143,7 @@ export default function AtendoPage() {
           sugestoes={SUGESTOES_RAPIDAS}
           onEscolher={enviarMensagem}
         />
+
         <ChatInput onEnviar={enviarMensagem} />
       </div>
     </div>
