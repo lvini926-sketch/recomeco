@@ -2,17 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  ArrowLeft,
-  FileText,
-  User,
-  Briefcase,
-  GraduationCap,
-  Phone,
-  MapPin,
-  CheckCircle2,
-  Sparkles,
-} from "lucide-react";
+import { ArrowLeft, Download, Share2 } from "lucide-react";
+import { jsPDF } from "jspdf";
 
 export default function CurriculoPage() {
   const [nome, setNome] = useState("");
@@ -22,23 +13,17 @@ export default function CurriculoPage() {
   const [experiencia, setExperiencia] = useState("");
   const [formacao, setFormacao] = useState("");
   const [habilidades, setHabilidades] = useState("");
-
   const [mostrarCurriculo, setMostrarCurriculo] = useState(false);
   const [curriculoMelhorado, setCurriculoMelhorado] = useState(false);
-  const [melhorando, setMelhorando] = useState(false);
+  const [carregandoGemini, setCarregandoGemini] = useState(false);
   const [erro, setErro] = useState("");
 
-  const gerarCurriculo = () => {
+  async function melhorarCurriculo() {
     setErro("");
-    setMostrarCurriculo(true);
-  };
-
-  const melhorarComIA = async () => {
-    setMelhorando(true);
-    setErro("");
+    setCarregandoGemini(true);
 
     try {
-      const resposta = await fetch("/api/curriculo", {
+      const response = await fetch("/api/curriculo", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -52,194 +37,109 @@ export default function CurriculoPage() {
         }),
       });
 
-      const dados = await resposta.json();
+      const resultado = await response.json();
 
-      if (!resposta.ok) {
-        throw new Error(dados.erro || "Não foi possível melhorar o currículo.");
+      if (!response.ok) {
+        throw new Error(resultado.erro || "Erro ao melhorar currículo.");
       }
 
-      setObjetivo(dados.objetivo || objetivo);
-      setExperiencia(dados.experiencia || experiencia);
-      setFormacao(dados.formacao || formacao);
-      setHabilidades(dados.habilidades || habilidades);
-
+      setObjetivo(resultado.objetivo || objetivo);
+      setExperiencia(resultado.experiencia || experiencia);
+      setFormacao(resultado.formacao || formacao);
+      setHabilidades(resultado.habilidades || habilidades);
       setCurriculoMelhorado(true);
     } catch (error) {
-      console.error(error);
       setErro(
-        "Não foi possível conectar à IA agora. Verifique a configuração da API e tente novamente."
+        error instanceof Error
+          ? error.message
+          : "Não foi possível melhorar o currículo."
       );
     } finally {
-      setMelhorando(false);
+      setCarregandoGemini(false);
     }
-  };
+  }
 
-  if (mostrarCurriculo) {
-    return (
-      <main className="min-h-dvh bg-areia-50">
-        <header className="flex items-center gap-3 border-b border-petroleo-100 bg-white px-5 py-4">
-          <button
-            onClick={() => setMostrarCurriculo(false)}
-            aria-label="Voltar"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-petroleo-900 hover:bg-petroleo-100"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
+  function gerarPDF() {
+    const pdf = new jsPDF();
+    const margem = 20;
+    const largura = 170;
+    let y = 20;
 
-          <div>
-            <h1 className="font-display text-lg font-medium text-petroleo-950">
-              {curriculoMelhorado ? "Currículo melhorado" : "Seu currículo"}
-            </h1>
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(20);
+    pdf.text(nome || "Currículo", margem, y);
 
-            <p className="text-xs text-carvao-600">
-              {curriculoMelhorado
-                ? "Versão profissional gerada pelo Gemini"
-                : "Confira suas informações"}
-            </p>
-          </div>
-        </header>
+    y += 9;
 
-        <section className="px-5 py-8">
-          {curriculoMelhorado && (
-            <div className="mb-5 rounded-3xl bg-petroleo-950 p-6 text-areia-50">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10">
-                  <Sparkles className="h-5 w-5" />
-                </div>
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
 
-                <div>
-                  <p className="text-sm font-medium text-petroleo-200">
-                    CURRÍCULO MELHORADO
-                  </p>
+    const contato = [cidade, telefone].filter(Boolean).join(" • ");
 
-                  <h2 className="mt-1 font-display text-xl font-semibold">
-                    Pronto para sua próxima oportunidade
-                  </h2>
-                </div>
-              </div>
+    if (contato) {
+      pdf.text(contato, margem, y);
+      y += 12;
+    } else {
+      y += 5;
+    }
 
-              <p className="mt-4 text-sm leading-relaxed text-petroleo-100">
-                O Gemini reorganizou suas informações para deixar o currículo
-                mais claro, profissional e objetivo.
-              </p>
-            </div>
-          )}
+    function secao(titulo: string, texto: string) {
+      if (!texto.trim()) return;
 
-          <div className="rounded-3xl bg-white p-6 shadow-sm">
-            <div className="border-b border-petroleo-100 pb-5">
-              <h2 className="font-display text-2xl font-bold text-petroleo-950">
-                {nome || "Seu Nome"}
-              </h2>
+      y += 5;
 
-              <div className="mt-2 space-y-1 text-sm text-carvao-600">
-                {cidade && <p>{cidade}</p>}
-                {telefone && <p>{telefone}</p>}
-              </div>
-            </div>
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(12);
+      pdf.text(titulo, margem, y);
 
-            {objetivo && (
-              <div className="mt-6">
-                <h3 className="text-sm font-bold uppercase tracking-wide text-petroleo-800">
-                  Objetivo profissional
-                </h3>
+      y += 7;
 
-                <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-carvao-700">
-                  {objetivo}
-                </p>
-              </div>
-            )}
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10);
 
-            {experiencia && (
-              <div className="mt-6">
-                <h3 className="text-sm font-bold uppercase tracking-wide text-petroleo-800">
-                  Experiência profissional
-                </h3>
+      const linhas = pdf.splitTextToSize(texto, largura);
 
-                <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-carvao-700">
-                  {experiencia}
-                </p>
-              </div>
-            )}
+      for (const linha of linhas) {
+        if (y > 275) {
+          pdf.addPage();
+          y = 20;
+        }
 
-            {formacao && (
-              <div className="mt-6">
-                <h3 className="text-sm font-bold uppercase tracking-wide text-petroleo-800">
-                  Formação
-                </h3>
+        pdf.text(linha, margem, y);
+        y += 5;
+      }
+    }
 
-                <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-carvao-700">
-                  {formacao}
-                </p>
-              </div>
-            )}
+    secao("OBJETIVO PROFISSIONAL", objetivo);
+    secao("EXPERIÊNCIA PROFISSIONAL", experiencia);
+    secao("FORMAÇÃO", formacao);
+    secao("HABILIDADES", habilidades);
 
-            {habilidades && (
-              <div className="mt-6">
-                <h3 className="text-sm font-bold uppercase tracking-wide text-petroleo-800">
-                  Habilidades
-                </h3>
-
-                <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-carvao-700">
-                  {habilidades}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {erro && (
-            <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm leading-relaxed text-red-800">
-              {erro}
-            </div>
-          )}
-
-          {!curriculoMelhorado && (
-            <div className="mt-5 rounded-2xl bg-petroleo-100 p-4">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 shrink-0 text-petroleo-800" />
-
-                <p className="text-sm text-petroleo-950">
-                  Seu currículo está preenchido. Agora podemos pedir ao Gemini
-                  para melhorar automaticamente o texto.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={melhorarComIA}
-                disabled={melhorando}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-petroleo-900 px-5 py-4 text-sm font-semibold text-white hover:bg-petroleo-800 disabled:opacity-60"
-              >
-                <Sparkles className="h-4 w-4" />
-
-                {melhorando
-                  ? "O Gemini está melhorando..."
-                  : "Melhorar meu currículo com IA"}
-              </button>
-            </div>
-          )}
-
-          {curriculoMelhorado && (
-            <div className="mt-5 rounded-2xl bg-petroleo-100 p-4">
-              <p className="text-sm font-semibold text-petroleo-950">
-                ✓ Currículo melhorado pelo Gemini
-              </p>
-
-              <p className="mt-2 text-sm leading-relaxed text-carvao-700">
-                A versão acima foi gerada a partir das informações fornecidas
-                por você.
-              </p>
-            </div>
-          )}
-
-          <button
-            onClick={() => setMostrarCurriculo(false)}
-            className="mt-5 w-full rounded-2xl border border-petroleo-200 bg-white px-5 py-4 text-sm font-semibold text-petroleo-900 hover:bg-petroleo-50"
-          >
-            Editar currículo
-          </button>
-        </section>
-      </main>
+    pdf.save(
+      `curriculo-${(nome || "recomeco")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/gi, "-")
+        .replace(/^-|-$/g, "")}.pdf`
     );
+  }
+
+  async function compartilhar() {
+    const texto = `Olá! Estou compartilhando meu currículo pelo RECOMEÇO.`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Currículo - ${nome || "RECOMEÇO"}`,
+          text: texto,
+        });
+        return;
+      } catch {
+        return;
+      }
+    }
+
+    const whatsapp = `https://wa.me/?text=${encodeURIComponent(texto)}`;
+    window.open(whatsapp, "_blank");
   }
 
   return (
@@ -253,149 +153,209 @@ export default function CurriculoPage() {
           <ArrowLeft className="h-5 w-5" />
         </Link>
 
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-petroleo-100 text-petroleo-900">
-            <FileText className="h-5 w-5" />
-          </div>
-
-          <div>
-            <h1 className="font-display text-lg font-medium text-petroleo-950">
-              Montar meu currículo
-            </h1>
-
-            <p className="text-xs text-carvao-600">
-              Preencha seus dados passo a passo
-            </p>
-          </div>
+        <div>
+          <h1 className="font-display text-lg font-medium text-petroleo-950">
+            Meu currículo
+          </h1>
+          <p className="text-xs text-carvao-600">
+            Prepare seu próximo passo profissional
+          </p>
         </div>
       </header>
 
       <section className="px-5 py-8">
-        <div className="rounded-3xl bg-petroleo-950 p-6 text-areia-50">
-          <p className="text-sm font-medium text-petroleo-200">
-            SEU PRÓXIMO PASSO
-          </p>
+        {!mostrarCurriculo ? (
+          <>
+            <div className="rounded-3xl bg-petroleo-950 p-6 text-areia-50">
+              <p className="text-sm font-medium text-petroleo-200">
+                SEU CURRÍCULO
+              </p>
 
-          <h2 className="mt-2 font-display text-2xl font-semibold">
-            Vamos montar seu currículo
-          </h2>
+              <h2 className="mt-2 font-display text-2xl font-semibold">
+                Vamos montar seu currículo
+              </h2>
 
-          <p className="mt-3 text-sm leading-relaxed text-petroleo-100">
-            Não precisa ter experiência com currículo. Preencha o que souber e
-            podemos melhorar depois.
-          </p>
-        </div>
+              <p className="mt-3 text-sm leading-relaxed text-petroleo-100">
+                Preencha com suas informações. Depois, o RECOMEÇO poderá
+                ajudar a melhorar a apresentação do seu currículo.
+              </p>
+            </div>
 
-        <form className="mt-6 space-y-5">
-          <div>
-            <label className="mb-2 flex items-center gap-2 text-sm font-medium text-petroleo-950">
-              <User className="h-4 w-4" />
-              Nome completo
-            </label>
+            <div className="mt-6 space-y-4">
+              <input
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                placeholder="Nome completo"
+                className="w-full rounded-2xl border border-petroleo-100 bg-white px-4 py-4 text-sm outline-none focus:border-petroleo-400"
+              />
 
-            <input
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              placeholder="Digite seu nome"
-              className="w-full rounded-2xl border border-petroleo-100 bg-white px-4 py-3 text-sm outline-none focus:border-petroleo-500"
-            />
-          </div>
+              <input
+                value={cidade}
+                onChange={(e) => setCidade(e.target.value)}
+                placeholder="Cidade / Estado"
+                className="w-full rounded-2xl border border-petroleo-100 bg-white px-4 py-4 text-sm outline-none focus:border-petroleo-400"
+              />
 
-          <div>
-            <label className="mb-2 flex items-center gap-2 text-sm font-medium text-petroleo-950">
-              <MapPin className="h-4 w-4" />
-              Cidade e estado
-            </label>
+              <input
+                value={telefone}
+                onChange={(e) => setTelefone(e.target.value)}
+                placeholder="Telefone / WhatsApp"
+                className="w-full rounded-2xl border border-petroleo-100 bg-white px-4 py-4 text-sm outline-none focus:border-petroleo-400"
+              />
 
-            <input
-              value={cidade}
-              onChange={(e) => setCidade(e.target.value)}
-              placeholder="Ex.: Cabo Frio - RJ"
-              className="w-full rounded-2xl border border-petroleo-100 bg-white px-4 py-3 text-sm outline-none focus:border-petroleo-500"
-            />
-          </div>
+              <textarea
+                value={objetivo}
+                onChange={(e) => setObjetivo(e.target.value)}
+                placeholder="Objetivo profissional"
+                rows={4}
+                className="w-full rounded-2xl border border-petroleo-100 bg-white px-4 py-4 text-sm outline-none focus:border-petroleo-400"
+              />
 
-          <div>
-            <label className="mb-2 flex items-center gap-2 text-sm font-medium text-petroleo-950">
-              <Phone className="h-4 w-4" />
-              Telefone
-            </label>
+              <textarea
+                value={experiencia}
+                onChange={(e) => setExperiencia(e.target.value)}
+                placeholder="Experiência profissional"
+                rows={5}
+                className="w-full rounded-2xl border border-petroleo-100 bg-white px-4 py-4 text-sm outline-none focus:border-petroleo-400"
+              />
 
-            <input
-              value={telefone}
-              onChange={(e) => setTelefone(e.target.value)}
-              placeholder="(00) 00000-0000"
-              className="w-full rounded-2xl border border-petroleo-100 bg-white px-4 py-3 text-sm outline-none focus:border-petroleo-500"
-            />
-          </div>
+              <textarea
+                value={formacao}
+                onChange={(e) => setFormacao(e.target.value)}
+                placeholder="Formação"
+                rows={4}
+                className="w-full rounded-2xl border border-petroleo-100 bg-white px-4 py-4 text-sm outline-none focus:border-petroleo-400"
+              />
 
-          <div>
-            <label className="mb-2 flex items-center gap-2 text-sm font-medium text-petroleo-950">
-              <Briefcase className="h-4 w-4" />
-              Objetivo profissional
-            </label>
+              <textarea
+                value={habilidades}
+                onChange={(e) => setHabilidades(e.target.value)}
+                placeholder="Habilidades"
+                rows={4}
+                className="w-full rounded-2xl border border-petroleo-100 bg-white px-4 py-4 text-sm outline-none focus:border-petroleo-400"
+              />
+            </div>
 
-            <textarea
-              value={objetivo}
-              onChange={(e) => setObjetivo(e.target.value)}
-              placeholder="Ex.: Procuro uma oportunidade na área administrativa."
-              rows={3}
-              className="w-full resize-none rounded-2xl border border-petroleo-100 bg-white px-4 py-3 text-sm outline-none focus:border-petroleo-500"
-            />
-          </div>
+            <button
+              type="button"
+              onClick={() => setMostrarCurriculo(true)}
+              className="mt-6 w-full rounded-2xl bg-petroleo-900 px-5 py-4 text-sm font-semibold text-white hover:bg-petroleo-800"
+            >
+              Visualizar meu currículo
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="rounded-3xl border border-petroleo-100 bg-white p-6">
+              <h2 className="font-display text-2xl font-semibold text-petroleo-950">
+                {nome || "Seu currículo"}
+              </h2>
 
-          <div>
-            <label className="mb-2 flex items-center gap-2 text-sm font-medium text-petroleo-950">
-              <Briefcase className="h-4 w-4" />
-              Experiência profissional
-            </label>
+              {(cidade || telefone) && (
+                <p className="mt-2 text-sm text-carvao-600">
+                  {[cidade, telefone].filter(Boolean).join(" • ")}
+                </p>
+              )}
 
-            <textarea
-              value={experiencia}
-              onChange={(e) => setExperiencia(e.target.value)}
-              placeholder="Conte onde trabalhou e quais atividades fazia."
-              rows={4}
-              className="w-full resize-none rounded-2xl border border-petroleo-100 bg-white px-4 py-3 text-sm outline-none focus:border-petroleo-500"
-            />
-          </div>
+              {objetivo && (
+                <div className="mt-6">
+                  <h3 className="font-semibold text-petroleo-950">
+                    Objetivo profissional
+                  </h3>
+                  <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-carvao-700">
+                    {objetivo}
+                  </p>
+                </div>
+              )}
 
-          <div>
-            <label className="mb-2 flex items-center gap-2 text-sm font-medium text-petroleo-950">
-              <GraduationCap className="h-4 w-4" />
-              Formação
-            </label>
+              {experiencia && (
+                <div className="mt-6">
+                  <h3 className="font-semibold text-petroleo-950">
+                    Experiência profissional
+                  </h3>
+                  <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-carvao-700">
+                    {experiencia}
+                  </p>
+                </div>
+              )}
 
-            <textarea
-              value={formacao}
-              onChange={(e) => setFormacao(e.target.value)}
-              placeholder="Ex.: Ensino Médio completo."
-              rows={3}
-              className="w-full resize-none rounded-2xl border border-petroleo-100 bg-white px-4 py-3 text-sm outline-none focus:border-petroleo-500"
-            />
-          </div>
+              {formacao && (
+                <div className="mt-6">
+                  <h3 className="font-semibold text-petroleo-950">
+                    Formação
+                  </h3>
+                  <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-carvao-700">
+                    {formacao}
+                  </p>
+                </div>
+              )}
 
-          <div>
-            <label className="mb-2 text-sm font-medium text-petroleo-950">
-              Habilidades
-            </label>
+              {habilidades && (
+                <div className="mt-6">
+                  <h3 className="font-semibold text-petroleo-950">
+                    Habilidades
+                  </h3>
+                  <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-carvao-700">
+                    {habilidades}
+                  </p>
+                </div>
+              )}
+            </div>
 
-            <textarea
-              value={habilidades}
-              onChange={(e) => setHabilidades(e.target.value)}
-              placeholder="Ex.: Atendimento ao cliente, informática, vendas..."
-              rows={3}
-              className="w-full resize-none rounded-2xl border border-petroleo-100 bg-white px-4 py-3 text-sm outline-none focus:border-petroleo-500"
-            />
-          </div>
+            <div className="mt-6 space-y-3">
+              {!curriculoMelhorado && (
+                <button
+                  type="button"
+                  onClick={melhorarCurriculo}
+                  disabled={carregandoGemini}
+                  className="w-full rounded-2xl bg-petroleo-900 px-5 py-4 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  {carregandoGemini
+                    ? "O Gemini está melhorando..."
+                    : "Melhorar currículo com IA"}
+                </button>
+              )}
 
-          <button
-            type="button"
-            onClick={gerarCurriculo}
-            className="w-full rounded-2xl bg-petroleo-900 px-5 py-4 text-sm font-semibold text-white hover:bg-petroleo-800"
-          >
-            Gerar meu currículo
-          </button>
-        </form>
+              {erro && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  {erro}
+                </div>
+              )}
+
+              {curriculoMelhorado && (
+                <div className="rounded-2xl border border-petroleo-200 bg-petroleo-50 p-4 text-sm text-petroleo-900">
+                  ✓ Versão profissional gerada pelo Gemini
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={gerarPDF}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-petroleo-900 px-5 py-4 text-sm font-semibold text-white hover:bg-petroleo-800"
+              >
+                <Download className="h-5 w-5" />
+                Baixar currículo em PDF
+              </button>
+
+              <button
+                type="button"
+                onClick={compartilhar}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-petroleo-200 bg-white px-5 py-4 text-sm font-semibold text-petroleo-900 hover:bg-petroleo-50"
+              >
+                <Share2 className="h-5 w-5" />
+                Compartilhar currículo
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMostrarCurriculo(false)}
+                className="w-full rounded-2xl px-5 py-3 text-sm font-medium text-carvao-600 hover:bg-white"
+              >
+                Editar currículo
+              </button>
+            </div>
+          </>
+        )}
       </section>
     </main>
   );

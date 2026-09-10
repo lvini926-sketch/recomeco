@@ -22,7 +22,12 @@ export default function PilarCard({
   abertoPorPadrao = false,
 }: PilarCardProps) {
   const [aberto, setAberto] = useState(abertoPorPadrao);
-  const progresso = progressoDoPilar({ id: "x", titulo, descricao, itens });
+  const progresso = progressoDoPilar({
+  id: "trabalho",
+  titulo,
+  descricao,
+  itens,
+});
 
   return (
     <Card className="p-5">
