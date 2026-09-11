@@ -168,8 +168,12 @@ function criarClientePublico() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!url || !anonKey) {
-    throw new Error("Variáveis públicas do Supabase não configuradas.");
+  if (!url) {
+    throw new Error("ATENDO_ENV_URL_MISSING");
+  }
+
+  if (!anonKey) {
+    throw new Error("ATENDO_ENV_ANON_KEY_MISSING");
   }
 
   return createSupabaseClient(url, anonKey, {
@@ -230,7 +234,11 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error("Erro ao consultar base pública do Atendo:", error);
-      return NextResponse.json({ resposta: FALLBACK, fonte: null });
+      return NextResponse.json({
+        resposta: FALLBACK,
+        fonte: null,
+        diagnostico: "SUPABASE_QUERY_ERROR",
+      });
     }
 
     const conhecimento = (data || []) as Conhecimento[];
@@ -271,11 +279,20 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Erro no endpoint /api/atendo/chat:", error);
 
+    const codigo = error instanceof Error ? error.message : "ATENDO_UNKNOWN_ERROR";
+
+    const resposta =
+      codigo === "ATENDO_ENV_URL_MISSING"
+        ? "Configuração online incompleta: falta NEXT_PUBLIC_SUPABASE_URL na Vercel."
+        : codigo === "ATENDO_ENV_ANON_KEY_MISSING"
+          ? "Configuração online incompleta: falta NEXT_PUBLIC_SUPABASE_ANON_KEY na Vercel."
+          : "Não consegui consultar a base oficial agora. Tente novamente em alguns instantes.";
+
     return NextResponse.json(
       {
-        resposta:
-          "Não consegui consultar a base oficial agora. Tente novamente em alguns instantes.",
+        resposta,
         fonte: null,
+        diagnostico: codigo,
       },
       { status: 500 }
     );
