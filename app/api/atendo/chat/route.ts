@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 const FALLBACK =
-  "Não encontrei essa informação na minha base oficial neste momento. Posso te orientar a procurar o órgão responsável.";
+  "Ainda não encontrei essa orientação com segurança na minha base oficial. Posso te ajudar por um destes caminhos: carteira de visitante, visitas, documentos digitais ou Escritório Social.";
 
 type Fonte = {
   id: string;
@@ -42,305 +42,148 @@ function normalizar(texto: string): string {
 
 function extrairPalavras(texto: string): string[] {
   const stopwords = new Set([
-    "a",
-    "as",
-    "o",
-    "os",
-    "um",
-    "uma",
-    "uns",
-    "umas",
-    "de",
-    "da",
-    "do",
-    "das",
-    "dos",
-    "em",
-    "no",
-    "na",
-    "nos",
-    "nas",
-    "por",
-    "para",
-    "com",
-    "sem",
-    "e",
-    "ou",
-    "que",
-    "se",
-    "me",
-    "minha",
-    "meu",
-    "minhas",
-    "meus",
-    "como",
-    "qual",
-    "quais",
-    "onde",
-    "quando",
-    "quem",
-    "pode",
-    "posso",
-    "preciso",
-    "quero",
-    "sobre",
-    "tem",
-    "tenho",
-    "ser",
-    "é",
-    "sao",
-    "são",
-    "nao",
-    "não",
+    "a", "as", "o", "os", "um", "uma", "uns", "umas", "de", "da", "do",
+    "das", "dos", "em", "no", "na", "nos", "nas", "por", "para", "com",
+    "sem", "e", "ou", "que", "se", "me", "minha", "meu", "minhas", "meus",
+    "como", "qual", "quais", "onde", "quando", "quem", "pode", "posso",
+    "preciso", "quero", "sobre", "tem", "tenho", "ser", "é", "sao", "são",
+    "nao", "não",
   ]);
 
   return normalizar(texto)
     .split(" ")
-    .filter(
-      (palavra) =>
-        palavra.length >= 3 && !stopwords.has(palavra)
-    );
+    .filter((palavra) => palavra.length >= 3 && !stopwords.has(palavra));
 }
 
-function calcularRelevancia(
-  mensagem: string,
-  item: Conhecimento
-): number {
-  const pergunta = normalizar(
-    item.pergunta_principal || ""
-  );
-
-  const alternativas = (item.perguntas_alternativas || [])
-    .map(normalizar)
-    .join(" ");
-
-  const categoria = normalizar(
-    item.categoria || ""
-  );
-
-  const subcategoria = normalizar(
-    item.subcategoria || ""
-  );
-
-  const resposta = normalizar(
-    item.resposta || ""
-  );
-
-  const documentos = normalizar(
-    (item.documentos || []).join(" ")
-  );
-
-  const passos = normalizar(
-    (item.passos || []).join(" ")
-  );
-
-  const proximoPasso = normalizar(
-    item.proximo_passo || ""
-  );
-
-  const encaminhamento = normalizar(
-    item.encaminhamento || ""
-  );
-
-  const tags = normalizar(
-    (item.tags || []).join(" ")
-  );
-
+function calcularRelevancia(mensagem: string, item: Conhecimento): number {
+  const pergunta = normalizar(item.pergunta_principal || "");
+  const alternativas = (item.perguntas_alternativas || []).map(normalizar).join(" ");
+  const categoria = normalizar(item.categoria || "");
+  const subcategoria = normalizar(item.subcategoria || "");
+  const resposta = normalizar(item.resposta || "");
+  const documentos = normalizar((item.documentos || []).join(" "));
+  const passos = normalizar((item.passos || []).join(" "));
+  const proximoPasso = normalizar(item.proximo_passo || "");
+  const encaminhamento = normalizar(item.encaminhamento || "");
+  const tags = normalizar((item.tags || []).join(" "));
   const mensagemNormalizada = normalizar(mensagem);
   const termos = extrairPalavras(mensagem);
 
-  if (!termos.length) {
-    return 0;
-  }
+  if (!termos.length) return 0;
 
   let score = 0;
 
-  if (
-    pergunta &&
-    mensagemNormalizada === pergunta
-  ) {
-    score += 100;
-  }
+  if (pergunta && mensagemNormalizada === pergunta) score += 100;
 
   if (
     pergunta &&
-    (
-      mensagemNormalizada.includes(pergunta) ||
-      pergunta.includes(mensagemNormalizada)
-    )
+    (mensagemNormalizada.includes(pergunta) || pergunta.includes(mensagemNormalizada))
   ) {
     score += 40;
   }
 
   for (const termo of termos) {
-    if (pergunta.includes(termo)) {
-      score += 10;
-    }
-
-    if (alternativas.includes(termo)) {
-      score += 8;
-    }
-
-    if (subcategoria.includes(termo)) {
-      score += 6;
-    }
-
-    if (categoria.includes(termo)) {
-      score += 4;
-    }
-
-    if (tags.includes(termo)) {
-      score += 5;
-    }
-
-    if (resposta.includes(termo)) {
-      score += 2;
-    }
-
-    if (documentos.includes(termo)) {
-      score += 2;
-    }
-
-    if (passos.includes(termo)) {
-      score += 2;
-    }
-
-    if (proximoPasso.includes(termo)) {
-      score += 2;
-    }
-
-    if (encaminhamento.includes(termo)) {
-      score += 2;
-    }
+    if (pergunta.includes(termo)) score += 10;
+    if (alternativas.includes(termo)) score += 8;
+    if (subcategoria.includes(termo)) score += 6;
+    if (categoria.includes(termo)) score += 4;
+    if (tags.includes(termo)) score += 5;
+    if (resposta.includes(termo)) score += 2;
+    if (documentos.includes(termo)) score += 2;
+    if (passos.includes(termo)) score += 2;
+    if (proximoPasso.includes(termo)) score += 2;
+    if (encaminhamento.includes(termo)) score += 2;
   }
 
   return score;
 }
 
-function adicionarLista(
-  titulo: string,
-  itens: string[]
-): string {
-  if (!itens.length) {
-    return "";
-  }
+function perguntaGenericaDeDocumentos(mensagem: string): boolean {
+  const texto = normalizar(mensagem);
+  const formasGenericas = new Set([
+    "documentos",
+    "documentacao",
+    "como tirar documentos",
+    "como tirar documento",
+    "preciso de documentos",
+    "quero tirar documentos",
+  ]);
 
-  const linhas = itens
-    .filter(
-      (item) =>
-        typeof item === "string" &&
-        item.trim().length > 0
-    )
-    .map((item) => `- ${item.trim()}`)
-    .join("\n");
-
-  if (!linhas) {
-    return "";
-  }
-
-  return `\n\n${titulo}:\n${linhas}`;
+  return formasGenericas.has(texto);
 }
 
-function adicionarPassos(
-  item: Conhecimento
-): string {
-  const passos = (item.passos || [])
-    .filter(
-      (passo) =>
-        typeof passo === "string" &&
-        passo.trim().length > 0
-    )
-    .map((passo) => passo.trim());
-
-  if (!passos.length) {
-    return "";
-  }
-
-  const linhas = passos
-    .map((passo, index) => `${index + 1}. ${passo}`)
-    .join("\n");
-
-  return `\n\nPróximo passo:\n${linhas}`;
+function querDocumentos(mensagem: string): boolean {
+  const texto = normalizar(mensagem);
+  return /\b(documento|documentos|documentacao|levar|precisa)\b/.test(texto);
 }
 
-function construirResposta(
-  item: Conhecimento
-): string {
-  const respostaBase = (item.resposta || "").trim();
-
-  if (!respostaBase) {
-    return FALLBACK;
-  }
-
-  let resposta = `Resposta direta:\n${respostaBase}`;
-
-  resposta += adicionarLista(
-    "O que você precisa",
-    item.documentos || []
-  );
-
-  resposta += adicionarPassos(item);
-
-  if (
-    item.proximo_passo &&
-    item.proximo_passo.trim()
-  ) {
-    resposta += `\n\nPróximo passo:\n${item.proximo_passo.trim()}`;
-  }
-
-  if (
-    item.encaminhamento &&
-    item.encaminhamento.trim()
-  ) {
-    resposta += `\n\nEncaminhamento:\n${item.encaminhamento.trim()}`;
-  }
-
-  return resposta.trim();
+function querPassos(mensagem: string): boolean {
+  const texto = normalizar(mensagem);
+  return /\b(como|passo|passos|fazer|tirar|solicitar|pedir)\b/.test(texto);
 }
 
-export async function POST(
-  request: NextRequest
-) {
+function primeiraParte(texto: string): string {
+  const limpa = texto.trim();
+  if (!limpa) return "";
+
+  const partes = limpa.split(/\n\s*\n/).filter(Boolean);
+  return (partes[0] || limpa).trim();
+}
+
+function construirResposta(item: Conhecimento, mensagem: string): string {
+  const respostaBase = primeiraParte(item.resposta || "");
+
+  if (!respostaBase) return FALLBACK;
+
+  const blocos: string[] = [respostaBase];
+
+  if (querDocumentos(mensagem)) {
+    const documentos = (item.documentos || [])
+      .filter((item) => typeof item === "string" && item.trim())
+      .slice(0, 5)
+      .map((item) => `• ${item.trim()}`);
+
+    if (documentos.length) {
+      blocos.push(`Documentos:\n${documentos.join("\n")}`);
+    }
+  }
+
+  if (querPassos(mensagem)) {
+    const passos = (item.passos || [])
+      .filter((item) => typeof item === "string" && item.trim())
+      .slice(0, 3)
+      .map((item, index) => `${index + 1}. ${item.trim()}`);
+
+    if (passos.length) {
+      blocos.push(`Próximos passos:\n${passos.join("\n")}`);
+    } else if (item.proximo_passo?.trim()) {
+      blocos.push(`Próximo passo: ${item.proximo_passo.trim()}`);
+    }
+  }
+
+  return blocos.join("\n\n").trim();
+}
+
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-
-    const mensagem = String(
-      body?.mensagem || ""
-    ).trim();
+    const mensagem = String(body?.mensagem || "").trim();
 
     if (!mensagem) {
-      return NextResponse.json(
-        {
-          error: "Mensagem não informada.",
-        },
-        {
-          status: 400,
-        }
-      );
+      return NextResponse.json({ error: "Mensagem não informada." }, { status: 400 });
+    }
+
+    if (perguntaGenericaDeDocumentos(mensagem)) {
+      return NextResponse.json({
+        resposta:
+          "Posso te ajudar com documentação. Qual situação você quer resolver: documentos pessoais, carteira de visitante ou documentos para visita?",
+        fonte: null,
+      });
     }
 
     const supabase = await createClient();
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        {
-          error: "Usuário não autenticado.",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
-
-    const {
-      data,
-      error,
-    } = await supabase
+    const { data, error } = await supabase
       .from("atendo_conhecimento")
       .select(`
         id,
@@ -369,76 +212,33 @@ export async function POST(
       .eq("status", "active");
 
     if (error) {
-      console.error(
-        "Erro ao consultar base do Atendo:",
-        error
-      );
-
-      return NextResponse.json(
-        {
-          error:
-            "Não foi possível consultar a base oficial.",
-        },
-        {
-          status: 500,
-        }
-      );
+      console.error("Erro ao consultar base do Atendo:", error);
+      return NextResponse.json({ resposta: FALLBACK, fonte: null });
     }
 
-    const conhecimento =
-      (data || []) as Conhecimento[];
+    const conhecimento = (data || []) as Conhecimento[];
 
     const resultados = conhecimento
       .map((item) => ({
         item,
-        relevancia:
-          calcularRelevancia(
-            mensagem,
-            item
-          ),
+        relevancia: calcularRelevancia(mensagem, item),
       }))
-      .filter(
-        (resultado) =>
-          resultado.relevancia > 0
-      )
+      .filter((resultado) => resultado.relevancia > 0)
       .sort((a, b) => {
-        if (
-          b.relevancia !==
-          a.relevancia
-        ) {
-          return (
-            b.relevancia -
-            a.relevancia
-          );
+        if (b.relevancia !== a.relevancia) {
+          return b.relevancia - a.relevancia;
         }
 
-        return (
-          (a.item.prioridade ?? 100) -
-          (b.item.prioridade ?? 100)
-        );
+        return (a.item.prioridade ?? 100) - (b.item.prioridade ?? 100);
       });
 
     if (!resultados.length) {
-      return NextResponse.json({
-        resposta: FALLBACK,
-        fonte: null,
-      });
+      return NextResponse.json({ resposta: FALLBACK, fonte: null });
     }
 
-    const melhorResultado =
-      resultados[0];
-
-    const item =
-      melhorResultado.item;
-
-    const resposta =
-      construirResposta(item);
-
-    const fonte =
-      item.atendo_fontes &&
-      item.atendo_fontes.length > 0
-        ? item.atendo_fontes[0]
-        : null;
+    const item = resultados[0].item;
+    const resposta = construirResposta(item, mensagem);
+    const fonte = item.atendo_fontes?.length ? item.atendo_fontes[0] : null;
 
     return NextResponse.json({
       resposta,
@@ -447,25 +247,20 @@ export async function POST(
             nome: fonte.nome,
             orgao: fonte.orgao,
             url: fonte.url,
-            revisada_em:
-              fonte.revisada_em,
+            revisada_em: fonte.revisada_em,
           }
         : null,
     });
   } catch (error) {
-    console.error(
-      "Erro no endpoint /api/atendo/chat:",
-      error
-    );
+    console.error("Erro no endpoint /api/atendo/chat:", error);
 
     return NextResponse.json(
       {
-        error:
-          "Erro interno ao processar a mensagem.",
+        resposta:
+          "Não consegui consultar a base oficial agora. Tente novamente em alguns instantes.",
+        fonte: null,
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
