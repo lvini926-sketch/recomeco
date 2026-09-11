@@ -1,0 +1,693 @@
+﻿"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import {
+ArrowLeft,
+FileText,
+Briefcase,
+GraduationCap,
+Lightbulb,
+Plus,
+Trash2,
+Save,
+Sparkles,
+Loader2,
+CheckCircle2,
+RotateCcw,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/browser";
+
+type Experiencia = {
+empresa: string;
+cargo: string;
+descricao: string;
+inicio: string;
+fim: string;
+};
+
+type Formacao = {
+instituicao: string;
+curso: string;
+inicio: string;
+fim: string;
+};
+
+type RascunhoCurriculo = {
+nome: string;
+objetivo: string;
+experiencias: Experiencia[];
+formacoes: Formacao[];
+habilidades: string[];
+salvoEm: string;
+};
+
+const experienciaVazia: Experiencia = {
+empresa: "",
+cargo: "",
+descricao: "",
+inicio: "",
+fim: "",
+};
+
+const formacaoVazia: Formacao = {
+instituicao: "",
+curso: "",
+inicio: "",
+fim: "",
+};
+
+export default function CurriculoPage() {
+const supabase = createClient();
+
+const [nome, setNome] = useState("");
+const [objetivo, setObjetivo] = useState("");
+
+const [experiencias, setExperiencias] = useState<Experiencia[]>([
+{ ...experienciaVazia },
+]);
+
+const [formacoes, setFormacoes] = useState<Formacao[]>([
+{ ...formacaoVazia },
+]);
+
+const [habilidades, setHabilidades] = useState<string[]>([""]);
+
+const [salvando, setSalvando] = useState(false);
+const [mensagem, setMensagem] = useState("");
+const [statusRascunho, setStatusRascunho] = useState<
+"carregando" | "salvando" | "salvo" | "nenhum"
+
+> ("carregando");
+
+const [usuarioId, setUsuarioId] = useState<string | null>(null);
+const [inicializado, setInicializado] = useState(false);
+
+// ==========================================
+// CARREGAR USUÁRIO E RASCUNHO INTERNO
+// ==========================================
+useEffect(() => {
+async function carregarDados() {
+const {
+data: { user },
+} = await supabase.auth.getUser();
+
+
+  if (!user) {
+    setStatusRascunho("nenhum");
+    setInicializado(true);
+    return;
+  }
+
+  setUsuarioId(user.id);
+
+  const nomeUsuario = user.user_metadata?.nome || user.email || "";
+  setNome(nomeUsuario);
+
+  const chaveRascunho = `recomeco:curriculo:rascunho:${user.id}`;
+
+  try {
+    const rascunhoSalvo = localStorage.getItem(chaveRascunho);
+
+    if (rascunhoSalvo) {
+      const rascunho: RascunhoCurriculo = JSON.parse(rascunhoSalvo);
+
+      setNome(rascunho.nome || nomeUsuario);
+      setObjetivo(rascunho.objetivo || "");
+
+      setExperiencias(
+        Array.isArray(rascunho.experiencias) &&
+          rascunho.experiencias.length > 0
+          ? rascunho.experiencias
+          : [{ ...experienciaVazia }]
+      );
+
+      setFormacoes(
+        Array.isArray(rascunho.formacoes) &&
+          rascunho.formacoes.length > 0
+          ? rascunho.formacoes
+          : [{ ...formacaoVazia }]
+      );
+
+      setHabilidades(
+        Array.isArray(rascunho.habilidades) &&
+          rascunho.habilidades.length > 0
+          ? rascunho.habilidades
+          : [""]
+      );
+
+      setStatusRascunho("salvo");
+    } else {
+      setStatusRascunho("nenhum");
+    }
+  } catch (error) {
+    console.error("Erro ao carregar rascunho:", error);
+    setStatusRascunho("nenhum");
+  }
+
+  setInicializado(true);
+}
+
+carregarDados();
+
+
+}, [supabase]);
+
+// ==========================================
+// SALVAMENTO AUTOMÁTICO DO RASCUNHO
+// ==========================================
+useEffect(() => {
+if (!inicializado || !usuarioId) {
+return;
+}
+
+
+setStatusRascunho("salvando");
+
+const temporizador = window.setTimeout(() => {
+  const chaveRascunho = `recomeco:curriculo:rascunho:${usuarioId}`;
+
+  const rascunho: RascunhoCurriculo = {
+    nome,
+    objetivo,
+    experiencias,
+    formacoes,
+    habilidades,
+    salvoEm: new Date().toISOString(),
+  };
+
+  try {
+    localStorage.setItem(chaveRascunho, JSON.stringify(rascunho));
+    setStatusRascunho("salvo");
+  } catch (error) {
+    console.error("Erro ao salvar rascunho:", error);
+    setStatusRascunho("nenhum");
+  }
+}, 700);
+
+return () => window.clearTimeout(temporizador);
+
+
+}, [
+inicializado,
+usuarioId,
+nome,
+objetivo,
+experiencias,
+formacoes,
+habilidades,
+]);
+
+// ==========================================
+// LIMPAR RASCUNHO
+// ==========================================
+function limparRascunho() {
+if (!usuarioId) {
+return;
+}
+
+
+const confirmar = window.confirm(
+  "Tem certeza que deseja apagar o rascunho deste currículo?"
+);
+
+if (!confirmar) {
+  return;
+}
+
+const chaveRascunho = `recomeco:curriculo:rascunho:${usuarioId}`;
+
+localStorage.removeItem(chaveRascunho);
+
+setObjetivo("");
+setExperiencias([{ ...experienciaVazia }]);
+setFormacoes([{ ...formacaoVazia }]);
+setHabilidades([""]);
+
+setMensagem("");
+setStatusRascunho("nenhum");
+
+
+}
+
+function atualizarExperiencia(
+index: number,
+campo: keyof Experiencia,
+valor: string
+) {
+setExperiencias((atual) =>
+atual.map((experiencia, i) =>
+i === index ? { ...experiencia, [campo]: valor } : experiencia
+)
+);
+}
+
+function adicionarExperiencia() {
+setExperiencias((atual) => [
+...atual,
+{
+...experienciaVazia,
+},
+]);
+}
+
+function removerExperiencia(index: number) {
+setExperiencias((atual) => atual.filter((_, i) => i !== index));
+}
+
+function atualizarFormacao(
+index: number,
+campo: keyof Formacao,
+valor: string
+) {
+setFormacoes((atual) =>
+atual.map((formacao, i) =>
+i === index ? { ...formacao, [campo]: valor } : formacao
+)
+);
+}
+
+function adicionarFormacao() {
+setFormacoes((atual) => [
+...atual,
+{
+...formacaoVazia,
+},
+]);
+}
+
+function removerFormacao(index: number) {
+setFormacoes((atual) => atual.filter((_, i) => i !== index));
+}
+
+function atualizarHabilidade(index: number, valor: string) {
+setHabilidades((atual) =>
+atual.map((habilidade, i) => (i === index ? valor : habilidade))
+);
+}
+
+function adicionarHabilidade() {
+setHabilidades((atual) => [...atual, ""]);
+}
+
+function removerHabilidade(index: number) {
+setHabilidades((atual) => atual.filter((_, i) => i !== index));
+}
+
+// ==========================================
+// SALVAR CURRÍCULO NO SUPABASE
+// ==========================================
+async function salvarCurriculo() {
+setSalvando(true);
+setMensagem("");
+
+
+try {
+  const resposta = await fetch("/api/curriculo", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      nome,
+      objetivo,
+      experiencia: experiencias,
+      formacao: formacoes,
+      habilidades: habilidades.filter((item) => item.trim() !== ""),
+    }),
+  });
+
+  const resultado = await resposta.json();
+
+  if (!resposta.ok) {
+    throw new Error(resultado.erro || "Não foi possível salvar.");
+  }
+
+  if (usuarioId) {
+    const chaveRascunho = `recomeco:curriculo:rascunho:${usuarioId}`;
+    localStorage.removeItem(chaveRascunho);
+  }
+
+  setStatusRascunho("nenhum");
+  setMensagem("Currículo salvo com sucesso.");
+} catch (error) {
+  console.error(error);
+  setMensagem("Não foi possível salvar o currículo.");
+} finally {
+  setSalvando(false);
+}
+
+
+}
+
+function renderStatusRascunho() {
+if (statusRascunho === "salvando") {
+return "Salvando rascunho...";
+}
+
+
+if (statusRascunho === "salvo") {
+  return "Rascunho salvo";
+}
+
+return "Sem rascunho local";
+
+
+}
+
+return ( <main className="min-h-dvh bg-[#F8FAFC] text-[#1E293B] flex justify-center"> <div className="w-full max-w-md min-h-dvh bg-[#F8FAFC] sm:min-h-[844px] sm:rounded-3xl sm:shadow-xl sm:border sm:border-slate-200/60 overflow-hidden"> <header className="flex items-center gap-3 border-b border-slate-100 bg-white px-5 py-4"> <Link
+         href="/trabalho"
+         aria-label="Voltar"
+         className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
+       > <ArrowLeft className="h-5 w-5" /> </Link>
+
+
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0F766E]/10 text-[#0F766E]">
+        <FileText className="h-5 w-5" />
+      </div>
+
+      <div className="flex-1">
+        <h1 className="text-sm font-bold">Meu currículo</h1>
+        <p className="text-[11px] text-[#0F766E] font-medium">
+          Vamos construir seu próximo passo
+        </p>
+      </div>
+    </header>
+
+    <div className="max-h-[calc(100dvh-73px)] overflow-y-auto px-5 py-6 space-y-6">
+      <section className="rounded-2xl bg-[#1E293B] p-5 text-white shadow-md">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-[#0F766E]">
+          Seu recomeço profissional
+        </p>
+
+        <h2 className="mt-2 text-xl font-bold">
+          Vamos montar seu currículo
+        </h2>
+
+        <p className="mt-2 text-xs leading-relaxed text-slate-300">
+          Preencha o que você já tem. Depois podemos usar a IA para
+          melhorar a apresentação sem inventar informações.
+        </p>
+      </section>
+
+      <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 text-[#0F766E]" />
+          <span className="text-[11px] font-semibold text-slate-600">
+            {renderStatusRascunho()}
+          </span>
+        </div>
+
+        {statusRascunho === "salvo" && (
+          <button
+            type="button"
+            onClick={limparRascunho}
+            className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-red-500"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Limpar
+          </button>
+        )}
+      </div>
+
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Briefcase className="h-5 w-5 text-[#0F766E]" />
+          <h2 className="font-bold">Objetivo profissional</h2>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <label className="text-xs font-semibold text-slate-600">
+            Nome
+          </label>
+
+          <input
+            value={nome}
+            readOnly
+            className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600 outline-none"
+          />
+
+          <label className="mt-4 block text-xs font-semibold text-slate-600">
+            O que você procura?
+          </label>
+
+          <textarea
+            value={objetivo}
+            onChange={(e) => setObjetivo(e.target.value)}
+            placeholder="Ex.: Busco oportunidade na área administrativa..."
+            rows={4}
+            className="mt-1 w-full resize-none rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#0F766E]"
+          />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Briefcase className="h-5 w-5 text-[#0F766E]" />
+          <h2 className="font-bold">Experiência profissional</h2>
+        </div>
+
+        {experiencias.map((experiencia, index) => (
+          <div
+            key={index}
+            className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-slate-500">
+                EXPERIÊNCIA {index + 1}
+              </p>
+
+              {experiencias.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removerExperiencia(index)}
+                  className="text-slate-400 hover:text-red-500"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            <input
+              value={experiencia.empresa}
+              onChange={(e) =>
+                atualizarExperiencia(index, "empresa", e.target.value)
+              }
+              placeholder="Empresa"
+              className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#0F766E]"
+            />
+
+            <input
+              value={experiencia.cargo}
+              onChange={(e) =>
+                atualizarExperiencia(index, "cargo", e.target.value)
+              }
+              placeholder="Cargo"
+              className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#0F766E]"
+            />
+
+            <textarea
+              value={experiencia.descricao}
+              onChange={(e) =>
+                atualizarExperiencia(index, "descricao", e.target.value)
+              }
+              placeholder="Descreva brevemente suas atividades..."
+              rows={3}
+              className="w-full resize-none rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#0F766E]"
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+              <input
+                type="date"
+                value={experiencia.inicio}
+                onChange={(e) =>
+                  atualizarExperiencia(index, "inicio", e.target.value)
+                }
+                className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#0F766E]"
+              />
+
+              <input
+                type="date"
+                value={experiencia.fim}
+                onChange={(e) =>
+                  atualizarExperiencia(index, "fim", e.target.value)
+                }
+                className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#0F766E]"
+              />
+            </div>
+          </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={adicionarExperiencia}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#0F766E]/40 bg-[#0F766E]/5 px-4 py-3 text-xs font-semibold text-[#0F766E]"
+        >
+          <Plus className="h-4 w-4" />
+          Adicionar experiência
+        </button>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <GraduationCap className="h-5 w-5 text-[#0F766E]" />
+          <h2 className="font-bold">Formação</h2>
+        </div>
+
+        {formacoes.map((formacao, index) => (
+          <div
+            key={index}
+            className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-slate-500">
+                FORMAÇÃO {index + 1}
+              </p>
+
+              {formacoes.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removerFormacao(index)}
+                  className="text-slate-400 hover:text-red-500"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            <input
+              value={formacao.instituicao}
+              onChange={(e) =>
+                atualizarFormacao(index, "instituicao", e.target.value)
+              }
+              placeholder="Instituição de ensino"
+              className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#0F766E]"
+            />
+
+            <input
+              value={formacao.curso}
+              onChange={(e) =>
+                atualizarFormacao(index, "curso", e.target.value)
+              }
+              placeholder="Curso"
+              className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#0F766E]"
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+              <input
+                type="date"
+                value={formacao.inicio}
+                onChange={(e) =>
+                  atualizarFormacao(index, "inicio", e.target.value)
+                }
+                className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#0F766E]"
+              />
+
+              <input
+                type="date"
+                value={formacao.fim}
+                onChange={(e) =>
+                  atualizarFormacao(index, "fim", e.target.value)
+                }
+                className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#0F766E]"
+              />
+            </div>
+          </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={adicionarFormacao}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#0F766E]/40 bg-[#0F766E]/5 px-4 py-3 text-xs font-semibold text-[#0F766E]"
+        >
+          <Plus className="h-4 w-4" />
+          Adicionar formação
+        </button>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Lightbulb className="h-5 w-5 text-[#0F766E]" />
+          <h2 className="font-bold">Habilidades</h2>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+          {habilidades.map((habilidade, index) => (
+            <div key={index} className="flex gap-2">
+              <input
+                value={habilidade}
+                onChange={(e) =>
+                  atualizarHabilidade(index, e.target.value)
+                }
+                placeholder="Ex.: Atendimento ao cliente"
+                className="flex-1 rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#0F766E]"
+              />
+
+              {habilidades.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removerHabilidade(index)}
+                  className="px-2 text-slate-400 hover:text-red-500"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          ))}
+
+          <button
+            type="button"
+            onClick={adicionarHabilidade}
+            className="flex items-center gap-2 text-xs font-semibold text-[#0F766E]"
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar habilidade
+          </button>
+        </div>
+      </section>
+
+      {mensagem && (
+        <div className="flex items-center gap-2 rounded-xl bg-[#0F766E]/10 px-4 py-3 text-xs font-semibold text-[#0F766E]">
+          <CheckCircle2 className="h-4 w-4" />
+          {mensagem}
+        </div>
+      )}
+
+      <div className="space-y-3 pb-6">
+        <button
+          type="button"
+          onClick={salvarCurriculo}
+          disabled={salvando}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0F766E] px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0F766E]/90 disabled:opacity-60"
+        >
+          {salvando ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Salvando...
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4" />
+              Salvar currículo
+            </>
+          )}
+        </button>
+
+        <button
+          type="button"
+          disabled
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#D97706]/30 bg-[#D97706]/5 px-5 py-3.5 text-sm font-semibold text-[#D97706] opacity-70"
+        >
+          <Sparkles className="h-4 w-4" />
+          Melhorar com IA — próximo passo
+        </button>
+      </div>
+    </div>
+  </div>
+</main>
+
+
+);
+}
+
+

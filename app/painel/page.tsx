@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { LogOut } from "lucide-react";
+import { LogOut, ArrowLeft, CheckCircle2 } from "lucide-react";
 import ProgressBar from "@/components/ui/ProgressBar";
 import PilarCard from "@/components/painel/PilarCard";
 import { PilarData, progressoGeral } from "@/lib/constants";
@@ -237,66 +237,76 @@ export default function PainelPage() {
 
   if (carregando) {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-areia-50">
-        <p className="text-sm text-carvao-600">
-          Carregando seu progresso...
-        </p>
+      <main className="flex min-h-dvh items-center justify-center bg-[#F8FAFC]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#0F766E] border-t-transparent" />
+          <p className="text-sm font-medium text-slate-500">
+            Carregando seu progresso...
+          </p>
+        </div>
       </main>
     );
   }
 
   return (
-    <div className="flex min-h-dvh flex-1 flex-col bg-areia-50">
-      <header className="bg-petroleo-950 px-5 pb-8 pt-6">
-        <div className="flex items-center justify-between gap-4">
-          <Link
-            href="/atendo"
-            className="text-sm text-petroleo-300 hover:text-areia-50"
-          >
-            ← Voltar ao Atendo
-          </Link>
+    <main className="min-h-dvh bg-[#F8FAFC] text-[#1E293B] flex justify-center items-center">
+      <div className="w-full max-w-md bg-[#F8FAFC] min-h-dvh sm:min-h-[844px] sm:rounded-3xl shadow-xl flex flex-col relative overflow-hidden border border-slate-200/60">
+        
+        {/* Header Redesenhado */}
+        <header className="bg-[#1E293B] px-5 pb-6 pt-5 text-white shadow-md">
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <Link
+              href="/atendo"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-300 hover:text-white transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" /> Voltar ao Atendo
+            </Link>
 
-          <button
-            type="button"
-            onClick={sair}
-            disabled={saindo}
-            className="inline-flex items-center gap-2 rounded-xl border border-areia-50/20 px-3 py-2 text-sm font-medium text-areia-50 transition hover:bg-white/10 disabled:opacity-60"
-          >
-            <LogOut className="h-4 w-4" />
-            {saindo ? "Saindo..." : "Sair"}
-          </button>
+            <button
+              type="button"
+              onClick={sair}
+              disabled={saindo}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10 disabled:opacity-60 active:scale-95"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              {saindo ? "Saindo..." : "Sair"}
+            </button>
+          </div>
+
+          <h1 className="text-2xl font-bold tracking-tight text-white">
+            {titulo}
+          </h1>
+
+          <p className="mt-1 text-xs leading-relaxed text-slate-300 font-medium">
+            Cada passo marcado aqui é um passo real na sua vida.
+          </p>
+
+          {/* Card de Progresso Geral Estilizado */}
+          <div className="mt-5 rounded-2xl bg-white/10 backdrop-blur-sm p-4 border border-white/10 shadow-inner">
+            <ProgressBar
+              value={progresso}
+              label="Progresso geral da trilha"
+            />
+          </div>
+        </header>
+
+        {/* Lista de Pilares */}
+        <div className="flex-1 space-y-3.5 px-5 py-6 overflow-y-auto">
+          {pilares.map((pilar, i) => (
+            <PilarCard
+              key={pilar.id}
+              titulo={pilar.titulo}
+              descricao={pilar.descricao}
+              itens={pilar.itens}
+              onToggleItem={(itemId) =>
+                alternarItem(pilar.id, itemId)
+              }
+              abertoPorPadrao={i === 0}
+            />
+          ))}
         </div>
 
-        <p className="mt-5 font-display text-2xl font-medium text-areia-50">
-          {titulo}
-        </p>
-
-        <p className="mt-1 text-sm text-petroleo-300">
-          Cada passo marcado aqui é um passo real na sua vida.
-        </p>
-
-        <div className="mt-6 rounded-acolhedor bg-petroleo-900/60 p-4">
-          <ProgressBar
-            value={progresso}
-            label="Progresso geral"
-          />
-        </div>
-      </header>
-
-      <main className="flex-1 space-y-4 px-5 py-6">
-        {pilares.map((pilar, i) => (
-          <PilarCard
-            key={pilar.id}
-            titulo={pilar.titulo}
-            descricao={pilar.descricao}
-            itens={pilar.itens}
-            onToggleItem={(itemId) =>
-              alternarItem(pilar.id, itemId)
-            }
-            abertoPorPadrao={i === 0}
-          />
-        ))}
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }

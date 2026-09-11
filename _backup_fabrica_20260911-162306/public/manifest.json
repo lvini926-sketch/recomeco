@@ -1,12 +1,12 @@
-﻿{
+{
   "name": "RECOMEÇO",
-  "short_name": "RECOMEÇO",
-  "description": "Informação, orientação e ferramentas para pessoas em reintegração social e seus familiares.",
+  "short_name": "Recomeço",
+  "description": "Apoio prático para famílias de pessoas privadas de liberdade e para quem está construindo a vida após o cárcere.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F8FAFC",
-  "theme_color": "#F8FAFC",
-  "lang": "pt-BR",
+  "background_color": "#FBF8F3",
+  "theme_color": "#0E3A41",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "/icon-192.png",

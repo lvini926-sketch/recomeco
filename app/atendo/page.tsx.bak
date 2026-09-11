@@ -6,28 +6,76 @@ import ChatBubble from "@/components/chat/ChatBubble";
 import QuickSuggestions from "@/components/chat/QuickSuggestions";
 import ChatInput from "@/components/chat/ChatInput";
 import { SUGESTOES_RAPIDAS } from "@/lib/constants";
-import { ArrowLeft, ExternalLink, Sparkles } from "lucide-react";
-
-interface Fonte {
-  nome: string;
-  orgao?: string | null;
-  url: string;
-  revisada_em?: string | null;
-}
+import { ArrowLeft, Sparkles } from "lucide-react";
 
 interface Mensagem {
   id: string;
   autor: "atendo" | "usuario";
   texto: string;
-  fonte?: Fonte | null;
 }
 
 const MENSAGEM_INICIAL: Mensagem = {
   id: "inicial",
   autor: "atendo",
-  texto:
-    "Olá, eu sou o Atendo. Conte o que você precisa — posso ajudar a encontrar o próximo passo.",
+  texto: "OlÃ¡, eu sou o Atendo. Conte o que vocÃª precisa â€” posso ajudar a encontrar o prÃ³ximo passo.",
 };
+
+function gerarResposta(texto: string): string {
+  const mensagem = texto.toLowerCase();
+
+  if (
+    mensagem.includes("documento") ||
+    mensagem.includes("rg") ||
+    mensagem.includes("cpf") ||
+    mensagem.includes("certidÃ£o")
+  ) {
+    return "Posso ajudar com documentaÃ§Ã£o. O primeiro passo Ã© identificar qual documento vocÃª precisa emitir ou regularizar. Posso te orientar sobre RG, CPF, certidÃµes e outros documentos.";
+  }
+
+  if (
+    mensagem.includes("trabalho") ||
+    mensagem.includes("emprego") ||
+    mensagem.includes("vaga") ||
+    mensagem.includes("currÃ­culo") ||
+    mensagem.includes("curso")
+  ) {
+    return "Posso ajudar com trabalho e qualificaÃ§Ã£o. Podemos organizar os prÃ³ximos passos para procurar emprego, preparar seu currÃ­culo, encontrar cursos e buscar oportunidades de reinserÃ§Ã£o profissional.";
+  }
+
+  if (
+    mensagem.includes("moradia") ||
+    mensagem.includes("casa") ||
+    mensagem.includes("aluguel") ||
+    mensagem.includes("onde morar")
+  ) {
+    return "Posso ajudar com moradia. Podemos organizar os prÃ³ximos passos para encontrar um lugar seguro para morar, verificar programas de apoio e separar os documentos necessÃ¡rios.";
+  }
+
+  if (
+    mensagem.includes("cras") ||
+    mensagem.includes("assistÃªncia") ||
+    mensagem.includes("assistencia") ||
+    mensagem.includes("escritÃ³rio social") ||
+    mensagem.includes("escritorio social") ||
+    mensagem.includes("ajuda")
+  ) {
+    return "Posso ajudar a encontrar caminhos de assistÃªncia social. Podemos verificar serviÃ§os como CRAS, EscritÃ³rio Social e outras formas de apoio disponÃ­veis para sua situaÃ§Ã£o.";
+  }
+
+  if (
+    mensagem.includes("saÃºde") ||
+    mensagem.includes("saude") ||
+    mensagem.includes("mÃ©dico") ||
+    mensagem.includes("medico") ||
+    mensagem.includes("hospital") ||
+    mensagem.includes("psicolÃ³gico") ||
+    mensagem.includes("psicologico")
+  ) {
+    return "Posso ajudar com informaÃ§Ãµes sobre acesso Ã  saÃºde. Podemos organizar os prÃ³ximos passos para buscar atendimento mÃ©dico, psicolÃ³gico ou outros serviÃ§os da rede pÃºblica.";
+  }
+
+  return "Entendi. Posso te ajudar a encontrar o prÃ³ximo passo. Tente me contar um pouco mais sobre o que vocÃª precisa, por exemplo: documentos, trabalho, moradia, assistÃªncia ou saÃºde.";
+}
 
 export default function AtendoPage() {
   const [mensagens, setMensagens] = useState<Mensagem[]>([
@@ -62,7 +110,6 @@ export default function AtendoPage() {
         texto:
           data.resposta ||
           "Não consegui encontrar essa orientação na minha base oficial neste momento.",
-        fonte: data.fonte || null,
       };
 
       setMensagens((atual) => [...atual, resposta]);
@@ -78,22 +125,12 @@ export default function AtendoPage() {
     }
   };
 
-  const formatarData = (data?: string | null) => {
-    if (!data) return null;
-
-    const partes = data.split("-");
-
-    if (partes.length !== 3) return data;
-
-    return `${partes[2]}/${partes[1]}/${partes[0]}`;
-  };
-
   return (
     <main className="min-h-dvh bg-[#F8FAFC] text-[#1E293B] flex justify-center items-center">
       <div className="w-full max-w-md bg-[#F8FAFC] min-h-dvh sm:min-h-[844px] sm:rounded-3xl shadow-xl flex flex-col relative overflow-hidden border border-slate-200/60">
         
-        {/* Header */}
-        <header className="flex items-center gap-3 border-b border-slate-100 bg-white px-5 py-4 shadow-sm">
+        {/* Header Redesenhado */}
+        <header className="flex items-center gap-3 border-b border-slate-100 bg-white px-5 py-4 shadow-xs">
           <Link
             href="/"
             aria-label="Voltar"
@@ -106,73 +143,27 @@ export default function AtendoPage() {
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0F766E]/10 text-[#0F766E]">
               <Sparkles size={18} className="stroke-[2]" />
             </div>
-
             <div>
               <p className="font-bold text-[#1E293B] text-sm tracking-tight flex items-center gap-1.5">
-                Atendo <span className="text-[#0F766E]">✨</span>
+                Atendo <span className="text-[#0F766E]">âœ¨</span>
               </p>
-
               <p className="text-[11px] text-[#0F766E] font-medium">
-                Assistente do RECOMEÇO
+                Assistente do RECOMEÃ‡O
               </p>
             </div>
           </div>
         </header>
 
-        {/* Histórico de Mensagens */}
-        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-6">
+        {/* HistÃ³rico de Mensagens */}
+        <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 py-6">
           {mensagens.map((m) => (
-            <div key={m.id} className="space-y-2">
-              <ChatBubble autor={m.autor}>{m.texto}</ChatBubble>
-
-              {/* Fonte oficial */}
-              {m.autor === "atendo" && m.fonte && (
-                <div className="ml-2 max-w-[92%] rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0F766E]/10 text-[#0F766E]">
-                      <ExternalLink className="h-4 w-4" />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-[#0F766E]">
-                        Fonte oficial
-                      </p>
-
-                      <p className="mt-1 text-sm font-semibold text-[#1E293B]">
-                        {m.fonte.nome}
-                      </p>
-
-                      {m.fonte.orgao && (
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          {m.fonte.orgao}
-                        </p>
-                      )}
-
-                      {m.fonte.revisada_em && (
-                        <p className="mt-2 text-[11px] text-slate-400">
-                          Informação revisada em{" "}
-                          {formatarData(m.fonte.revisada_em)}
-                        </p>
-                      )}
-
-                      <a
-                        href={m.fonte.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[#0F766E]/10 px-3 py-2 text-xs font-semibold text-[#0F766E] transition-colors hover:bg-[#0F766E]/15"
-                      >
-                        Consultar fonte oficial
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            <ChatBubble key={m.id} autor={m.autor}>
+              {m.texto}
+            </ChatBubble>
           ))}
         </div>
 
-        {/* Rodapé */}
+        {/* RodapÃ© com SugestÃµes e Input */}
         <div className="space-y-3 border-t border-slate-100 bg-white px-5 py-4 shadow-sm">
           <QuickSuggestions
             sugestoes={SUGESTOES_RAPIDAS}
@@ -181,6 +172,7 @@ export default function AtendoPage() {
 
           <ChatInput onEnviar={enviarMensagem} />
         </div>
+
       </div>
     </main>
   );

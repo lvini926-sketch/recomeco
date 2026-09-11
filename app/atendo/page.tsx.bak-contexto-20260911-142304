@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -55,6 +55,24 @@ export default function AtendoPage() {
       });
 
       const data = await response.json();
+
+      if (response.status === 401) {
+        window.location.href = "/auth?next=%2Fatendo";
+        return;
+      }
+
+      if (!response.ok) {
+        const resposta: Mensagem = {
+          id: crypto.randomUUID(),
+          autor: "atendo",
+          texto:
+            data?.error ||
+            "Não consegui consultar minha base oficial agora. Tente novamente em alguns instantes.",
+        };
+
+        setMensagens((atual) => [...atual, resposta]);
+        return;
+      }
 
       const resposta: Mensagem = {
         id: crypto.randomUUID(),

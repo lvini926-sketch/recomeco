@@ -1,34 +1,33 @@
-import type { Metadata, Viewport } from "next";
-import { Fraunces, Manrope } from "next/font/google";
+﻿import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-// Serifada, humana e calorosa — usada só em títulos, para contrastar
-// com a frieza institucional que o tema carrega por natureza.
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-fraunces",
-  weight: ["500", "600"],
-  display: "swap",
-});
-
-// Humanista, legível, amigável em telas pequenas — usada no corpo todo.
-const manrope = Manrope({
-  subsets: ["latin"],
-  variable: "--font-manrope",
-  weight: ["400", "500", "700", "800"],
-  display: "swap",
-});
-
 export const metadata: Metadata = {
-  title: "RECOMEÇO",
+  title: {
+    default: "RECOMEÇO",
+    template: "%s | RECOMEÇO",
+  },
   description:
-    "Apoio prático para famílias de pessoas privadas de liberdade e para quem está construindo a vida após o cárcere.",
+    "Plataforma digital de impacto social para pessoas em reintegração e seus familiares.",
   manifest: "/manifest.json",
   applicationName: "RECOMEÇO",
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+  },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "RECOMEÇO",
+  },
+  openGraph: {
+    title: "RECOMEÇO",
+    description:
+      "Existe um caminho depois daqui. Informação, orientação e ferramentas para recomeçar.",
+    type: "website",
   },
 };
 
@@ -36,7 +35,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#0E3A41",
+  themeColor: "#F8FAFC",
 };
 
 export default function RootLayout({
@@ -45,14 +44,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR" className={`${fraunces.variable} ${manrope.variable}`}>
-      <body className="min-h-dvh bg-areia-50 font-sans text-carvao-900 antialiased">
-        {/* Container mobile-first: conteúdo nunca ultrapassa a largura
-           confortável de leitura, mesmo em telas maiores. */}
-        <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col">
-          {children}
-        </div>
-      </body>
+    <html lang="pt-BR">
+      <body>{children}</body>
     </html>
   );
 }
