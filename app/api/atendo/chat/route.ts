@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 const FALLBACK =
   "Ainda não encontrei essa orientação com segurança na minha base oficial. Posso te ajudar por um destes caminhos: carteira de visitante, visitas, documentos digitais ou Escritório Social.";
@@ -164,6 +164,23 @@ function construirResposta(item: Conhecimento, mensagem: string): string {
   return blocos.join("\n\n").trim();
 }
 
+function criarClientePublico() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) {
+    throw new Error("Variáveis públicas do Supabase não configuradas.");
+  }
+
+  return createSupabaseClient(url, anonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -181,7 +198,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const supabase = await createClient();
+    const supabase = criarClientePublico();
 
     const { data, error } = await supabase
       .from("atendo_conhecimento")
@@ -212,7 +229,7 @@ export async function POST(request: NextRequest) {
       .eq("status", "active");
 
     if (error) {
-      console.error("Erro ao consultar base do Atendo:", error);
+      console.error("Erro ao consultar base pública do Atendo:", error);
       return NextResponse.json({ resposta: FALLBACK, fonte: null });
     }
 
