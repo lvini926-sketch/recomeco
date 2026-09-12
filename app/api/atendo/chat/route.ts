@@ -140,6 +140,56 @@ function criarClientePublico() {
   });
 }
 
+function diagnosticarErroGemini(error: unknown) {
+  const texto = error instanceof Error ? error.message : String(error);
+  const normalizado = texto.toLowerCase();
+
+  if (
+    normalizado.includes("api key") ||
+    normalizado.includes("apikey") ||
+    normalizado.includes("401") ||
+    normalizado.includes("403") ||
+    normalizado.includes("permission_denied")
+  ) {
+    return {
+      codigo: "GEMINI_AUTH_ERROR",
+      resposta:
+        "O Atendo chegou até o Gemini, mas a chave de acesso foi recusada. Precisamos revisar a GEMINI_API_KEY na Vercel."
+    };
+  }
+
+  if (
+    normalizado.includes("429") ||
+    normalizado.includes("quota") ||
+    normalizado.includes("resource_exhausted") ||
+    normalizado.includes("rate limit")
+  ) {
+    return {
+      codigo: "GEMINI_QUOTA_ERROR",
+      resposta:
+        "O Atendo chegou até o Gemini, mas a cota ou o limite de uso da API foi atingido."
+    };
+  }
+
+  if (
+    normalizado.includes("404") ||
+    normalizado.includes("model") ||
+    normalizado.includes("not found")
+  ) {
+    return {
+      codigo: "GEMINI_MODEL_ERROR",
+      resposta:
+        "O Atendo chegou até o Gemini, mas o modelo configurado não pôde ser utilizado neste projeto."
+    };
+  }
+
+  return {
+    codigo: "GEMINI_CALL_ERROR",
+    resposta:
+      "O Atendo conseguiu chegar à etapa do Gemini, mas a chamada da IA falhou. O diagnóstico técnico foi registrado no servidor."
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -195,7 +245,8 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error("Erro ao consultar base pública do Atendo:", error);
       return NextResponse.json({
-        resposta: FALLBACK,
+        resposta:
+          "O Atendo está online, mas não conseguiu consultar a base oficial do Supabase. Precisamos revisar a conexão ou as permissões da tabela atendo_conhecimento.",
         fonte: null,
         diagnostico: "SUPABASE_QUERY_ERROR"
       });
@@ -238,22 +289,38 @@ Se a informação não estiver na base, diga que ainda não há informação suf
 Não mostre JSON nem detalhes técnicos.
 `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.7-flash",
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION
-      },
-      contents: prompt
-    });
+    let respostaGemini: string;
 
-    const resposta = response.text?.trim() || FALLBACK;
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3.7-flash",
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION
+        },
+        contents: prompt
+      });
+
+      respostaGemini = response.text?.trim() || FALLBACK;
+    } catch (errorGemini) {
+      console.error("Erro específico na chamada do Gemini:", errorGemini);
+      const diagnostico = diagnosticarErroGemini(errorGemini);
+
+      return NextResponse.json(
+        {
+          resposta: diagnostico.resposta,
+          fonte: null,
+          diagnostico: diagnostico.codigo
+        },
+        { status: 500 }
+      );
+    }
 
     const primeiraFonte = contexto
       .flatMap((item) => item.atendo_fontes || [])
       .find((fonte) => fonte?.url);
 
     return NextResponse.json({
-      resposta,
+      resposta: respostaGemini,
       fonte: primeiraFonte
         ? {
             nome: primeiraFonte.nome,
@@ -274,7 +341,7 @@ Não mostre JSON nem detalhes técnicos.
         ? "Configuração online incompleta: falta NEXT_PUBLIC_SUPABASE_URL na Vercel."
         : codigo === "ATENDO_ENV_ANON_KEY_MISSING"
           ? "Configuração online incompleta: falta NEXT_PUBLIC_SUPABASE_ANON_KEY na Vercel."
-          : "Não consegui responder agora. Tente novamente em alguns instantes.";
+          : "O Atendo encontrou uma falha antes de chegar ao Gemini. O erro foi registrado para diagnóstico.";
 
     return NextResponse.json(
       {
