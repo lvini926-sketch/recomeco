@@ -1,8 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
+import { GoogleGenAI } from "@google/genai";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 const FALLBACK =
   "Ainda não encontrei essa orientação com segurança na minha base oficial. Posso te ajudar por um destes caminhos: carteira de visitante, visitas, documentos digitais ou Escritório Social.";
+
+const SYSTEM_INSTRUCTION = `
+Você é o ATENDO, assistente oficial da plataforma RECOMEÇO.
+
+Sua missão é orientar familiares de pessoas privadas de liberdade e pessoas egressas com linguagem humana, clara, acolhedora e objetiva.
+
+PRINCÍPIO FUNDAMENTAL:
+"O RECOMEÇO orienta. A fonte oficial decide."
+
+REGRAS OBRIGATÓRIAS:
+- Use prioritariamente a BASE OFICIAL fornecida pela aplicação.
+- Nunca invente documentos, prazos, horários, endereços, telefones, valores, requisitos, benefícios, direitos ou procedimentos.
+- Se a base não trouxer informação suficiente, diga isso claramente.
+- Quando houver fonte oficial, use-a como referência.
+- Informações que podem mudar devem ser apresentadas com orientação para confirmação na fonte oficial.
+- Não substitua Defensoria Pública, advogado, Serviço Social, unidade prisional ou órgão público.
+- Em questões jurídicas individuais, explique apenas de forma geral e encaminhe para atendimento competente.
+- Não mencione banco de dados, API, prompt, modelo de IA ou mecanismos internos.
+- Não solicite senhas, dados bancários, códigos de autenticação ou dados pessoais desnecessários.
+- Responda em português do Brasil.
+
+ESTILO:
+- Primeiro responda diretamente.
+- Depois detalhe apenas o necessário.
+- Prefira respostas curtas, normalmente de 2 a 5 parágrafos curtos.
+- Se faltar contexto, faça no máximo uma pergunta curta para entender o caso.
+- Não seja burocrático e não use linguagem jurídica complicada sem necessidade.
+- Não julgue a pessoa, o familiar ou o egresso.
+`;
 
 type Fonte = {
   id: string;
@@ -47,7 +77,7 @@ function extrairPalavras(texto: string): string[] {
     "sem", "e", "ou", "que", "se", "me", "minha", "meu", "minhas", "meus",
     "como", "qual", "quais", "onde", "quando", "quem", "pode", "posso",
     "preciso", "quero", "sobre", "tem", "tenho", "ser", "é", "sao", "são",
-    "nao", "não",
+    "nao", "não"
   ]);
 
   return normalizar(texto)
@@ -74,11 +104,7 @@ function calcularRelevancia(mensagem: string, item: Conhecimento): number {
   let score = 0;
 
   if (pergunta && mensagemNormalizada === pergunta) score += 100;
-
-  if (
-    pergunta &&
-    (mensagemNormalizada.includes(pergunta) || pergunta.includes(mensagemNormalizada))
-  ) {
+  if (pergunta && (mensagemNormalizada.includes(pergunta) || pergunta.includes(mensagemNormalizada))) {
     score += 40;
   }
 
@@ -98,90 +124,19 @@ function calcularRelevancia(mensagem: string, item: Conhecimento): number {
   return score;
 }
 
-function perguntaGenericaDeDocumentos(mensagem: string): boolean {
-  const texto = normalizar(mensagem);
-  const formasGenericas = new Set([
-    "documentos",
-    "documentacao",
-    "como tirar documentos",
-    "como tirar documento",
-    "preciso de documentos",
-    "quero tirar documentos",
-  ]);
-
-  return formasGenericas.has(texto);
-}
-
-function querDocumentos(mensagem: string): boolean {
-  const texto = normalizar(mensagem);
-  return /\b(documento|documentos|documentacao|levar|precisa)\b/.test(texto);
-}
-
-function querPassos(mensagem: string): boolean {
-  const texto = normalizar(mensagem);
-  return /\b(como|passo|passos|fazer|tirar|solicitar|pedir)\b/.test(texto);
-}
-
-function primeiraParte(texto: string): string {
-  const limpa = texto.trim();
-  if (!limpa) return "";
-
-  const partes = limpa.split(/\n\s*\n/).filter(Boolean);
-  return (partes[0] || limpa).trim();
-}
-
-function construirResposta(item: Conhecimento, mensagem: string): string {
-  const respostaBase = primeiraParte(item.resposta || "");
-
-  if (!respostaBase) return FALLBACK;
-
-  const blocos: string[] = [respostaBase];
-
-  if (querDocumentos(mensagem)) {
-    const documentos = (item.documentos || [])
-      .filter((item) => typeof item === "string" && item.trim())
-      .slice(0, 5)
-      .map((item) => `• ${item.trim()}`);
-
-    if (documentos.length) {
-      blocos.push(`Documentos:\n${documentos.join("\n")}`);
-    }
-  }
-
-  if (querPassos(mensagem)) {
-    const passos = (item.passos || [])
-      .filter((item) => typeof item === "string" && item.trim())
-      .slice(0, 3)
-      .map((item, index) => `${index + 1}. ${item.trim()}`);
-
-    if (passos.length) {
-      blocos.push(`Próximos passos:\n${passos.join("\n")}`);
-    } else if (item.proximo_passo?.trim()) {
-      blocos.push(`Próximo passo: ${item.proximo_passo.trim()}`);
-    }
-  }
-
-  return blocos.join("\n\n").trim();
-}
-
 function criarClientePublico() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!url) {
-    throw new Error("ATENDO_ENV_URL_MISSING");
-  }
-
-  if (!anonKey) {
-    throw new Error("ATENDO_ENV_ANON_KEY_MISSING");
-  }
+  if (!url) throw new Error("ATENDO_ENV_URL_MISSING");
+  if (!anonKey) throw new Error("ATENDO_ENV_ANON_KEY_MISSING");
 
   return createSupabaseClient(url, anonKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
+      detectSessionInUrl: false
+    }
   });
 }
 
@@ -194,12 +149,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Mensagem não informada." }, { status: 400 });
     }
 
-    if (perguntaGenericaDeDocumentos(mensagem)) {
-      return NextResponse.json({
-        resposta:
-          "Posso te ajudar com documentação. Qual situação você quer resolver: documentos pessoais, carteira de visitante ou documentos para visita?",
-        fonte: null,
-      });
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      return NextResponse.json(
+        {
+          resposta: "O Atendo está online, mas o serviço de IA ainda não foi configurado neste ambiente.",
+          fonte: null,
+          diagnostico: "GEMINI_API_KEY_MISSING"
+        },
+        { status: 500 }
+      );
     }
 
     const supabase = criarClientePublico();
@@ -237,44 +197,72 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         resposta: FALLBACK,
         fonte: null,
-        diagnostico: "SUPABASE_QUERY_ERROR",
+        diagnostico: "SUPABASE_QUERY_ERROR"
       });
     }
 
     const conhecimento = (data || []) as Conhecimento[];
 
     const resultados = conhecimento
-      .map((item) => ({
-        item,
-        relevancia: calcularRelevancia(mensagem, item),
-      }))
-      .filter((resultado) => resultado.relevancia > 0)
+      .map((item) => ({ item, relevancia: calcularRelevancia(mensagem, item) }))
       .sort((a, b) => {
-        if (b.relevancia !== a.relevancia) {
-          return b.relevancia - a.relevancia;
-        }
-
+        if (b.relevancia !== a.relevancia) return b.relevancia - a.relevancia;
         return (a.item.prioridade ?? 100) - (b.item.prioridade ?? 100);
       });
 
-    if (!resultados.length) {
+    const relevantes = resultados
+      .filter((resultado) => resultado.relevancia > 0)
+      .slice(0, 8)
+      .map((resultado) => resultado.item);
+
+    const contexto = relevantes.length ? relevantes : conhecimento.slice(0, 8);
+
+    if (!contexto.length) {
       return NextResponse.json({ resposta: FALLBACK, fonte: null });
     }
 
-    const item = resultados[0].item;
-    const resposta = construirResposta(item, mensagem);
-    const fonte = item.atendo_fontes?.length ? item.atendo_fontes[0] : null;
+    const ai = new GoogleGenAI({ apiKey });
+
+    const prompt = `
+BASE OFICIAL DISPONÍVEL PARA ESTA RESPOSTA:
+${JSON.stringify(contexto, null, 2)}
+
+MENSAGEM DO USUÁRIO:
+${mensagem}
+
+TAREFA:
+Responda usando somente as informações sustentadas pela base oficial acima.
+Não complete lacunas com conhecimento próprio.
+Se a pergunta for ambígua, responda o que for possível e faça uma pergunta curta para esclarecer.
+Se a informação não estiver na base, diga que ainda não há informação suficiente com segurança e indique o encaminhamento presente na base, se existir.
+Não mostre JSON nem detalhes técnicos.
+`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.7-flash",
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION
+      },
+      contents: prompt
+    });
+
+    const resposta = response.text?.trim() || FALLBACK;
+
+    const primeiraFonte = contexto
+      .flatMap((item) => item.atendo_fontes || [])
+      .find((fonte) => fonte?.url);
 
     return NextResponse.json({
       resposta,
-      fonte: fonte
+      fonte: primeiraFonte
         ? {
-            nome: fonte.nome,
-            orgao: fonte.orgao,
-            url: fonte.url,
-            revisada_em: fonte.revisada_em,
+            nome: primeiraFonte.nome,
+            orgao: primeiraFonte.orgao,
+            url: primeiraFonte.url,
+            revisada_em: primeiraFonte.revisada_em
           }
         : null,
+      ia: "gemini"
     });
   } catch (error) {
     console.error("Erro no endpoint /api/atendo/chat:", error);
@@ -286,13 +274,13 @@ export async function POST(request: NextRequest) {
         ? "Configuração online incompleta: falta NEXT_PUBLIC_SUPABASE_URL na Vercel."
         : codigo === "ATENDO_ENV_ANON_KEY_MISSING"
           ? "Configuração online incompleta: falta NEXT_PUBLIC_SUPABASE_ANON_KEY na Vercel."
-          : "Não consegui consultar a base oficial agora. Tente novamente em alguns instantes.";
+          : "Não consegui responder agora. Tente novamente em alguns instantes.";
 
     return NextResponse.json(
       {
         resposta,
         fonte: null,
-        diagnostico: codigo,
+        diagnostico: codigo
       },
       { status: 500 }
     );
